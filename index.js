@@ -17,7 +17,7 @@ const db = mysql.createConnection({
     user: "root",
     host: "localhost",
     password: "",
-    database: "dbRestaurant"
+    database: "restaurant"
 
     // user: "a6ba34_dbtest",
     // host: "mysql5040.site4now.net",
@@ -262,7 +262,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.251.61:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -281,8 +281,8 @@ app.use(errHandler)
 app.post('/add-product', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
-            'INSERT INTO tbproduct (product_id,product_name,protype_id,unit_id,price,cost,image) VALUES (?,?,?,?,?,?,?)',
-            [req.body.product_id, req.body.product_name, req.body.protype_id, req.body.unit_id, req.body.price, req.body.cost,req.body.image],
+            'INSERT INTO tbProduct (product_id,product_name,protype_id,unit_id,quantity,price,cost,image) VALUES (?,?,?,?,?,?,?,?)',
+            [req.body.product_id, req.body.product_name, req.body.protype_id, req.body.unit_id,req.body.quantity, req.body.price, req.body.cost,req.body.image],
             function (err, results, fields) {
                 if (err) {
                     res.json({ status: false, message: err })
@@ -294,33 +294,31 @@ app.post('/add-product', jsonParser, function (req, res, next) {
     });
 })
 //-------------------< update product >-----------------------------------
+
 app.patch('/update-product', jsonParser, function (req, res, next) {
-    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-        db.query(
-            'UPDATE tbproduct SET product_name=?, protype_id=?, unit_id=?, price=?, cost=?, image=? WHERE product_id=?',
-            [req.body.product_name, req.body.protype_id, req.body.unit_id, req.body.price, req.body.cost, req.body.image, req.body.product_id],
-            
-            function (err, results, fields) {
-                if (err) {
-                    res.json({ status: false, message: err })
-                    return
-                }
-                let message = "";
-                if(results.changeRows === 0){
-                  message = "Product not found"
-                }else{
-                  message = "Update product successfully ";
-                }
-                return res.json({ status: true, data: results, message: message })
-            }
-        );
-    });
-})
+    db.query(
+      'UPDATE tbProduct SET product_name=?, protype_id=?, unit_id=?, quantity=?, price=?, cost=?, image=? WHERE product_id=?',
+      [req.body.product_name, req.body.protype_id, req.body.unit_id, req.body.quantity, req.body.price, req.body.cost, req.body.image, req.body.product_id],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: false, message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Product not found"
+        } else {
+          message = "Product updated successfully";
+        }
+        return res.json({ status: true, data: results, message: message })
+      }
+    );
+  });
 //-------------------< delete product >-----------------------------------
 app.delete('/delete-product', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
-            'DELETE FROM tbproduct WHERE product_id=?',
+            'DELETE FROM tbProduct WHERE product_id=?',
             [req.body.product_id],
             
             function (err, results, fields) {
@@ -356,11 +354,11 @@ app.post('/product', jsonParser, function (req, res, next) {
         );
     });
 })
-
+//........get product...........
 app.get('/product', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
-            'SELECT * FROM tbproduct',
+            'SELECT * FROM tbProduct',
             function (err, results, fields) {
                 if (err) {
                     res.json({ status: 'error', message: err })
@@ -386,11 +384,69 @@ app.get('/product-type', jsonParser, function (req, res, next) {
         );
     });
 })
+//-----add product type --------------------
+app.post('/product-types', jsonParser, function (req, res, next) {
+    db.query(
+        'INSERT INTO tbProductType (protype_name) VALUES (?)',
+        [req.body.protype_name],
+        function (err, results, fields) {
+            if (err) {
+                res.json({ status: false, message: err })
+                return
+            }
+            res.json({ status: true, data: results, message: "Product type added successfully" })
+        }
+    );
+})
+//-----delete product type --------------------
+app.delete('/delete-product-type', jsonParser, function (req, res, next) {
+    db.query(
+      'DELETE FROM tbProductType WHERE protype_id = ?',
+      [req.body.protype_id],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Product type not found"
+        } else {
+          message = "Product type deleted successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
+
+//................upadte product type...........................
+
+  app.put('/update-product-type', jsonParser, function (req, res, next) {
+    db.query(
+      'UPDATE tbProductType SET protype_name = ? WHERE protype_id = ?',
+      [req.body.protype_name, req.body.protype_id],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Product type not found"
+        } else {
+          message = "Product type updated successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
+
+//.............get unit............
 
 app.get('/Unit', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
-            'SELECT * FROM tbunit',
+            'SELECT * FROM tbUnit',
             function (err, results, fields) {
                 if (err) {
                     res.json({ status: 'error', message: err })
@@ -402,6 +458,67 @@ app.get('/Unit', jsonParser, function (req, res, next) {
     });
 })
 
+//...............Add Unit...............
+
+app.post('/Unit', jsonParser, function (req, res, next) {
+    const { unitName } = req.body;
+  
+    db.query(
+      'INSERT INTO tbUnit (unit_name) VALUES (?)',
+      [unitName],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err });
+          return;
+        }
+  
+        res.json({ status: 200, data: results, message: 'Unit added successfully' });
+      }
+    );
+  });
+
+  //..........delete unit............
+  app.delete('/delete-Unit', jsonParser, function (req, res, next) {
+    db.query(
+      'DELETE FROM tbUnit WHERE unit_id = ?',
+      [req.body.unitId],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Product type not found"
+        } else {
+          message = "Product type deleted successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
+
+//..........update unit..............
+
+app.put('/update-Unit', jsonParser, function (req, res, next) {
+    db.query(
+      'UPDATE tbUnit SET unit_name = ? WHERE unit_id = ?',
+      [req.body.unitName, req.body.unitId],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Unit not found"
+        } else {
+          message = "unit updated successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
 
 // app.post('/food', jsonParser, function (req, res, next) {
     
@@ -427,7 +544,7 @@ app.get('/Unit', jsonParser, function (req, res, next) {
 
 //----for select and serch------
 app.post('/food', jsonParser, function (req, res, next) {
-  var sql = "SELECT * FROM tbproduct WHERE 1=1";
+  var sql = "SELECT * FROM tbProduct WHERE 1=1";
   var params = [];
 
   if (req.body.typeId !== "" && req.body.typeId !== 0) {
@@ -449,7 +566,7 @@ console.log('hello world ' + sql);// just make log
     res.json({ status: 200, data: results, message: err });
   });
 });
-
+//...................//.......................
 app.post('/order', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
@@ -473,12 +590,14 @@ app.post('/order', jsonParser, function (req, res, next) {
 });
 
 app.post('/order-details', jsonParser, function (req, res, next) {
-    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+    ///console.log('body====',req.body);
         db.query(
-            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `product_name`, `qty`, `amount`, `ord_date`) VALUES (?,?,?,?,?,?)',
-            [ req.body.or_id, req.body.product_id,req.body.product_name, req.body.qty, req.body.amount, req.body.ord_date,],
+            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`) VALUES (?,?,?,?,?)',
+            [ req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date,],
             function (err, results, fields) {
+                console.log('result=====',results);
                 if (err) {
+                    console.log('error',err);
                     res.json({ status: 'error', message: err })
                     return
                 }
@@ -491,7 +610,7 @@ app.post('/order-details', jsonParser, function (req, res, next) {
                 });
             }
         );
-    });
+    
 });
 
 // app.post('/order', jsonParser, function (req, res, next) {
@@ -645,10 +764,26 @@ app.post('/cut-stock', jsonParser, function (req, res, next) {
     });
 })
 
+
+app.post('/getOrderBytable', jsonParser, function (req, res, next) {
+    
+        db.query(
+            'SELECT * FROM tblOrder where table_id=?',[req.body.tableId],
+            function (err, results, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                res.json({ status: 200, data: results[0], message: err })
+            }
+        );
+    
+})
+
 // app.listen(port,"172.16.40.141", function () {
 //     console.log('CORS-enabled web server listening on port 3002')
 // })
 
-app.listen(port,"192.168.251.61", function () {
+app.listen(port,"192.168.1.4", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
