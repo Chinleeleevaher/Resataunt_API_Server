@@ -570,8 +570,8 @@ console.log('hello world ' + sql);// just make log
 app.post('/order', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
         db.query(
-            'INSERT INTO `tblOrder`( `or_date`, `or_qty`, `or_amount`, `or_status`, `table_id`) VALUES (?,?,?,?,?)',
-            [ req.body.or_date, req.body.or_qty, req.body.or_amount, req.body.or_status, req.body.table_id],
+            'INSERT INTO `tblOrder`( `or_date`, `or_qty`, `or_amount`, `or_status`, `table_id`,`receives`,`returns`,`payment`) VALUES (?,?,?,?,?,?,?,?)',
+            [ req.body.or_date, req.body.or_qty, req.body.or_amount, req.body.or_status, req.body.table_id, req.body.receives, req.body.returns, req.body.payment],
             function (err, results, fields) {
                 if (err) {
                     res.json({ status: 'error', message: err })
@@ -592,8 +592,8 @@ app.post('/order', jsonParser, function (req, res, next) {
 app.post('/order-details', jsonParser, function (req, res, next) {
     ///console.log('body====',req.body);
         db.query(
-            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`) VALUES (?,?,?,?,?)',
-            [ req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date,],
+            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`,`table_id`) VALUES (?,?,?,?,?,?)',
+            [ req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date,req.body.table_id,],
             function (err, results, fields) {
                 console.log('result=====',results);
                 if (err) {
@@ -722,25 +722,27 @@ app.get('/max-order-id', jsonParser, function (req, res, next) {
 })
 
 // ------here is select data to reshow in the order status. i use post because i need to send the table id to compaire and seletet data
+
 app.post('/order-by-table', jsonParser, function (req, res, next) {
-    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-        db.query( 
-    ' SELECT tborderdetail.ord_id,tborderdetail.qty,tborderdetail.amount,tbproduct.product_name,tbproduct.price,'
-            +' tblorder.or_date,tblorder.or_amount, tbtable.table_id FROM tblorder INNER JOIN tborderdetail on tborderdetail.or_id=tblorder.or_id'
-            +' INNER JOIN tbproduct on tborderdetail.product_id=tbproduct.product_id'
-            +' INNER JOIN tbtable on tblorder.table_id=tbtable.table_id'
-            +' WHERE tbtable.table_id=? and tblorder.or_status=1;'
-            ,[req.body.tableId],
+  
+        db.query(
+            'SELECT tborderdetail.ord_id, tborderdetail.qty, tborderdetail.amount, tbproduct.product_name, tbproduct.price, '
+            + 'tblorder.or_date, tblorder.or_amount, tbtable.table_id, tborderdetail.or_id, tbproduct.product_id '
+            + 'FROM tblorder '
+            + 'INNER JOIN tborderdetail ON tborderdetail.or_id = tblorder.or_id '
+            + 'INNER JOIN tbproduct ON tborderdetail.product_id = tbproduct.product_id '
+            + 'INNER JOIN tbtable ON tblorder.table_id = tbtable.table_id '
+            + 'WHERE tbtable.table_id = ? AND tblorder.or_status = ?;',
+            [req.body.tableId, req.body.or_status],
             function (err, results, fields) {
                 if (err) {
-                    res.json({ status: false,code:res.statusCode, message: err })
-                    return
+                    res.json({ status: false, code: res.statusCode, message: err });
+                    return;
                 }
-                res.json({ status: true,code:res.statusCode, data: results, message: err })
+                res.json({ status: true, code: res.statusCode, data: results, message: err });
             }
         );
     });
-})
 
 //------cut stock-------------------------
 app.post('/cut-stock', jsonParser, function (req, res, next) {
@@ -764,7 +766,7 @@ app.post('/cut-stock', jsonParser, function (req, res, next) {
     });
 })
 
-
+//.........get order by table..............
 app.post('/getOrderBytable', jsonParser, function (req, res, next) {
     
         db.query(
@@ -779,11 +781,272 @@ app.post('/getOrderBytable', jsonParser, function (req, res, next) {
         );
     
 })
+//......................upadte table id and table status in tbOrder , qty, amount...................
+app.patch('/update_tableID_status_tbOrder', jsonParser, function (req, res, next) {
+    const { tableId, orqty, orAmount, orId, TableId, OrStatus, TableStatus } = req.body;
 
-// app.listen(port,"172.16.40.141", function () {
-//     console.log('CORS-enabled web server listening on port 3002')
-// })
+    db.beginTransaction(function (err) {
+        if (err) {
+            res.json({ status: 'error', message: err });
+            return;
+        }
 
+        db.query(
+            'UPDATE tblOrder SET or_qty= ?, or_amount = ?, table_id = ?, or_status = ? WHERE or_id = ?',
+            [orqty, orAmount, TableId, OrStatus, orId],
+            function (err, results, fields) {
+                if (err) {
+                    db.rollback(function () {
+                        res.json({ status: 'error', message: err });
+                    });
+                    return;
+                }
+
+                db.query(
+                    'UPDATE tbTable SET table_status = ? WHERE table_id = ?',
+                    [TableStatus, tableId],
+                    function (err, results, fields) {
+                        if (err) {
+                            db.rollback(function () {
+                                res.json({ status: 'error', message: err });
+                            });
+                            return;
+                        }
+
+                        db.commit(function (err) {
+                            if (err) {
+                                db.rollback(function () {
+                                    res.json({ status: 'error', message: err });
+                                });
+                            } else {
+                                res.json({ status: 200, message: 'Order and table updated successfully.' });
+                            }
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
+//...............to delete order from table that i move already..........
+app.delete('/delete-move-order-getFromtable', jsonParser, function (req, res, next) {
+    const table_id = req.body.table_id;
+
+    db.query(
+        'DELETE FROM tblOrder WHERE table_id = ?',
+        [table_id],
+        function (err, results, fields) {
+            if (err) {
+                res.json({ status: 'error', message: err.sqlMessage });
+                return;
+            }
+
+            db.query(
+                'DELETE FROM tbOrderDetail WHERE table_id = ?',
+                [table_id],
+                function (err, results, fields) {
+                    if (err) {
+                        res.json({ status: 'error', message: err.sqlMessage });
+                        return;
+                    }
+
+                    let message = "";
+                    if (results.affectedRows === 0) {
+                        message = "Order not found.";
+                    } else {
+                        message = "Order and corresponding details deleted successfully.";
+                    }
+
+                    return res.json({ status: 200, message: message });
+                }
+            );
+        }
+    );
+});
+
+// app.delete('/delete-move-order-getTotable', jsonParser, function (req, res, next) {
+//     db.query(
+//       'DELETE FROM tbOrderDetail WHERE table_id = ?',
+//       [req.body.table_id],
+//       function (err, results, fields) {
+//         if (err) {
+//           res.json({ status: 'error', message: err.sqlMessage })
+//           return
+//         }
+//         let message = "";
+//         if (results.affectedRows === 0) {
+//           message = "Product type not found"
+//         } else {
+//           message = "Product type deleted successfully";
+//         }
+//         return res.json({ status: 200, data: results, message: message })
+//       }
+//     );
+//   });
+
+app.post('/update-move-table', jsonParser, function (req, res, next) {
+    ///console.log('body====',req.body);
+        db.query(
+            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`, `table_id`) VALUES (?,?,?,?,?,?)',
+            [req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date, req.body.table_id],
+            function (err, results, fields) {
+                console.log('result=====',results);
+                if (err) {
+                    console.log('error',err);
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, rows, fields) {
+                    if (err) {
+                        res.json({ status: 'error', message: err })
+                        return
+                    }
+                    res.json({ status: 200, data: rows[0] })
+                });
+            }
+        );
+    
+});
+
+
+//.........get order by order_status in kitchen..............
+app.post('/getOrderstatus', jsonParser, function (req, res, next) {
+        db.query(
+            'SELECT * FROM tblOrder WHERE or_status = ?', [req.body.orStatus],
+            function (err, results, fields) {
+                console.log('id=' + req.body.orStatus);
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                console.log(results);
+                res.json({ status: 200, data: results, message: err })
+            }
+        );
+   
+})
+//.........get orderdetail by order id for kitchen..............
+app.post('/getOrderDetail_Kitchen', jsonParser, function (req, res, next) {
+    db.query(
+        'SELECT * FROM tborderdetail WHERE or_id = ?',
+        [req.body.or_id],
+        function (err, results, fields) {
+            console.log('id=' + req.body.or_id);
+            if (err) {
+                res.json({ status: 'error', message: err });
+                return;
+            }
+            
+            // Array to store the final results with product names
+            let orderDetails = [];
+
+            // Iterate through each result
+            for (let i = 0; i < results.length; i++) {
+                let orderDetail = results[i];
+                let productId = orderDetail.product_id;
+
+                // Fetch product name from tbProduct based on product_id
+                db.query(
+                    'SELECT product_name FROM tbProduct WHERE product_id = ?',
+                    [productId],
+                    function (err, productResult, fields) {
+                        if (err) {
+                            res.json({ status: 'error', message: err });
+                            return;
+                        }
+
+                        // Add the product name to the order detail
+                        orderDetail.product_name = productResult[0].product_name;
+
+                        // Add the updated order detail to the array
+                        orderDetails.push(orderDetail);
+
+                        // Check if all order details have been processed
+                        if (orderDetails.length === results.length) {
+                            // Send the final results with product names
+                            console.log(orderDetails);
+                            res.json({ status: 200, data: orderDetails, message: err });
+                        }
+                    }
+                );
+            }
+        }
+    );
+});
+
+/// ..........update table status and order status in kitchen.....................
+app.post('/updateTables-orderstatus', jsonParser, function (req, res, next) {
+    const tableId = req.body.tableId;
+    const tableStatus = req.body.tableStatus;
+    const orderId = req.body.orderId;
+    const orderStatus = req.body.orderStatus;
+
+    db.beginTransaction(function (err) {
+        if (err) {
+            res.json({ status: 'error', message: err });
+            return;
+        }
+
+        // Update table status
+        db.query(
+            'UPDATE tbTable SET table_status = ? WHERE table_id = ?',
+            [tableStatus, tableId],
+            function (err, results, fields) {
+                if (err) {
+                    db.rollback(function () {
+                        res.json({ status: 'error', message: err });
+                    });
+                    return;
+                }
+
+                // Update order status
+                db.query(
+                    'UPDATE tblOrder SET or_status = ? WHERE or_id = ?',
+                    [orderStatus, orderId],
+                    function (err, results, fields) {
+                        if (err) {
+                            db.rollback(function () {
+                                res.json({ status: 'error', message: err });
+                            });
+                            return;
+                        }
+
+                        db.commit(function (err) {
+                            if (err) {
+                                db.rollback(function () {
+                                    res.json({ status: 'error', message: err });
+                                });
+                                return;
+                            }
+
+                            res.json({ status: 200, message: 'Tables and order status updated successfully' });
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
+// ............update tblOrder when make payment.................
+app.patch('/update-Order_payment', jsonParser, function (req, res, next) {
+    db.query(
+      'UPDATE tblOrder SET receives = ?, returns = ?, payment = ?, or_status = ? WHERE or_id = ?',
+      [req.body.receives, req.body.returns, req.body.payment, req.body.orStatus, req.body.orId],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Order not found"
+        } else {
+          message = "Order updated successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
 app.listen(port,"192.168.1.4", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
