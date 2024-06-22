@@ -262,7 +262,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -753,7 +753,7 @@ app.post('/cut-stock', jsonParser, function (req, res, next) {
                 + 'INNER JOIN tblorder ON tblorder.or_id = tborderdetail.or_id '
                 + 'INNER JOIN tbtable ON tbtable.table_id = tblorder.table_id '
                 + 'SET tbproduct.quantity = tbproduct.quantity - tborderdetail.qty '
-                + 'WHERE tbtable.table_id = ? AND tblorder.or_status = 1;'
+                + 'WHERE tbtable.table_id = ? AND tblorder.or_status = 2;'
             , [req.body.tableId],
             function (err, result) {
                 if (err) {
@@ -1047,6 +1047,78 @@ app.patch('/update-Order_payment', jsonParser, function (req, res, next) {
       }
     );
   });
-app.listen(port,"192.168.1.4", function () {
+/// ............of order list for report...............
+app.post('/getOrderDateRange', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT * FROM tblOrder WHERE or_date BETWEEN ? AND ? AND or_status = 0',
+      [req.body.startDate, req.body.endDate],
+      function (err, results, fields) {
+        console.log('Start Date: ' + req.body.startDate + ', End Date: ' + req.body.endDate);
+        if (err) {
+          res.json({ status: 'error', message: err })
+          return
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: err })
+      }
+    );
+  });
+  //.........get orderdetail by order id for report.............
+  app.post('/getOrderDetailReport', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT od.*, p.product_name ' +
+      'FROM tborderdetail od ' +
+      'JOIN tblOrder o ON od.or_id = o.or_id ' +
+      'JOIN tbProduct p ON od.product_id = p.product_id ' +
+      'WHERE o.or_id = ?',
+      [req.body.or_id],
+      function (err, results, fields) {
+        console.log('Order ID: ' + req.body.or_id);
+        if (err) {
+          res.json({ status: 'error', message: err })
+          return
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: err })
+      }
+    );
+  });
+///.........get products for report.............
+
+app.get('/products', jsonParser, function (req, res, next) {
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        db.query(
+            'SELECT * FROM tbProduct',
+            function (err, results, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                res.json({ status: 200, data: results, message: err })
+            }
+        );
+    });
+})
+
+app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT od.*, o.or_date, p.product_name ' +
+      'FROM tbOrderDetail od ' +
+      'JOIN tblOrder o ON od.or_id = o.or_id ' +
+      'JOIN tbProduct p ON od.product_id = p.product_id ' +
+      'WHERE o.or_date BETWEEN ? AND ?',
+      [req.body.startDate, req.body.endDate],
+      function (err, results, fields) {
+        console.log('Start Date: ' + req.body.startDate + ', End Date: ' + req.body.endDate);
+        if (err) {
+          res.json({ status: 'error', message: err })
+          return
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: err })
+      }
+    );
+  });
+app.listen(port,"192.168.1.3", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
