@@ -262,7 +262,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.5:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -766,11 +766,11 @@ app.post('/cut-stock', jsonParser, function (req, res, next) {
     });
 })
 
-//.........get order by table..............
+//.........get order by table for make check bill( specail for collect or_id)..............
 app.post('/getOrderBytable', jsonParser, function (req, res, next) {
     
         db.query(
-            'SELECT * FROM tblOrder where table_id=?',[req.body.tableId],
+            'SELECT * FROM tblOrder WHERE table_id = ? AND or_status = 2',[req.body.tableId],
             function (err, results, fields) {
                 if (err) {
                     res.json({ status: 'error', message: err })
@@ -781,6 +781,7 @@ app.post('/getOrderBytable', jsonParser, function (req, res, next) {
         );
     
 })
+
 //......................upadte table id and table status in tbOrder , qty, amount...................
 app.patch('/update_tableID_status_tbOrder', jsonParser, function (req, res, next) {
     const { tableId, orqty, orAmount, orId, TableId, OrStatus, TableStatus } = req.body;
@@ -1119,6 +1120,6 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
       }
     );
   });
-app.listen(port,"192.168.1.3", function () {
+app.listen(port,"192.168.1.5", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
