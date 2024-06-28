@@ -192,19 +192,7 @@ app.post('/add-table', jsonParser, function (req, res, next) {
     });
 })
 //----------------of update table -----------------------------
-// app.put('/update-table', jsonParser, function (req, res, next) {
-//     db.query(
-//         'UPDATE tbtable SET table_status=? WHERE table_id=?',
-//         [req.body.table_status, req.body.table_id],
-//         function (err, results, fields) {
-//             if (err) {
-//                 res.json({ status: 'error', message: err })
-//                 return
-//             }
-//             res.json({ status: 200, data: results, message: err })
-//         }
-//     );
-// })
+
 app.put('/update-table', jsonParser, function (req, res, next) {
     db.query(
         'UPDATE tbtable SET table_status=? WHERE table_id=?',
@@ -262,7 +250,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.5:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -613,98 +601,6 @@ app.post('/order-details', jsonParser, function (req, res, next) {
     
 });
 
-// app.post('/order', jsonParser, function (req, res, next) {
-//     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-//         db.query(
-//             'INSERT INTO `tblOrder`( `or_date`, `or_qty`, `or_amount`, `or_status`, `table_id`) VALUES (?,?,?,?,?)',
-//             [ req.body.or_date, req.body.or_qty, req.body.or_amount, req.body.or_status, req.body.table_id],
-//             function (err, results, fields) {
-//                 if (err) {
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 res.json({ status: 200, data: results, message: err })
-//             }
-//         );
-//     });
-// })
-// app.post('/order-detail', jsonParser, function (req, res, next) {
-//     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-//         let orderlist=[];
-//         let list=[];
-//          list=req.body;
-//          console.log(list)
-//         for (let item =0;item< list.length;item++) {
-//             console.log(`Cache item: ${JSON.stringify(item)}`)
-//             console.log(`productId: ${list[item].productId}`)
-//             orderlist.push([
-//                     list[item].order_Id,
-//                     list[item].product_Id,
-//                     // list[item].product_name,
-//                     list[item].qty,
-//                     list[item].amount,
-//                     list[item].date,
-//             ])
-//         }
-//         //return;
-//         console.log(orderlist)
-//         db.query(
-//             'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`) VALUES ?',
-//             [orderlist],
-//             function (err, results, fields) {
-//                 if (err) {
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 res.json({ status: 200, data: results, message: err })
-//             }
-//         );
-
-//     });
-// })
-
-// app.post('/order-detail', jsonParser, function (req, res, next) {
-//     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-//         let orderlist=[];
-//         let list=[];
-//         if (!req.body) {
-//             res.json({ status: 'error', message: 'Request body is empty' })
-//             return
-//         }
-//         list=req.body;
-//         console.log(list)
-//         if (!list || list.length === 0) {
-//             res.json({ status: 'error', message: 'No order details found in request body' })
-//             return
-//         }
-//         for (let item =0;item< list.length;item++) {
-//             console.log(`Cache item: ${JSON.stringify(item)}`)
-//             console.log(`productId: ${list[item].productId}`)
-//             orderlist.push([
-//                 list[item].order_Id,
-//                 list[item].product_Id,
-//                 // list[item].product_name,
-//                 list[item].qty,
-//                 list[item].amount,
-//                 list[item].date,
-//             ])
-//         }
-//         console.log(orderlist)
-//         db.query(
-//             'INSERT INTO `tborderdetail`(`ord_id`, `or_id`, `product_id`, `qty`, `amount`, `ord_date`) VALUES ?',
-//             [orderlist],
-//             function (err, results, fields) {
-//                if (err) {
-//                     console.log(err)
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 console.log(results)
-//                 res.json({ status: 200, data: results, message: 'Order details inserted successfully' })
-//             }
-//         );
-//     });
-// })
 //-----nomore use---------------
 app.get('/max-order-id', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
@@ -1120,6 +1016,76 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
       }
     );
   });
-app.listen(port,"192.168.1.5", function () {
+  //-------------------< Add Order product >-----------------------------------
+
+
+
+  app.post('/add-OrderProduct', jsonParser, function(req, res, next) {
+    db.beginTransaction(function(err) {
+        if (err) {
+            res.status(500).json({ status: false, message: err.message });
+            return;
+        }
+
+        // Insert into tbOrderProduct
+        db.query(
+            'INSERT INTO tbOrderProduct (product_id, orpName, orpQty, orpPrice, status, image) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.body.product_id, req.body.product_name, req.body.product_Qty, req.body.product_price, req.body.status, req.body.product_image],
+            function(err, insertResults, fields) {
+                if (err) {
+                    db.rollback(function() {
+                        res.status(500).json({ status: false, message: err.message });
+                    });
+                    return;
+                }
+
+                // Select data with status = 1
+                db.query(
+                    'SELECT * FROM tbOrderProduct WHERE status = 1',
+                    function(err, selectResults, fields) {
+                        if (err) {
+                            db.rollback(function() {
+                                res.status(500).json({ status: false, message: err.message });
+                            });
+                            return;
+                        }
+
+                        db.commit(function(err) {
+                            if (err) {
+                                db.rollback(function() {
+                                    res.status(500).json({ status: false, message: err.message });
+                                });
+                                return;
+                            }
+
+                            res.status(201).json({ status: true, data: selectResults, message: 'Order product inserted successfully' });
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
+///...........update orderProduct status.................
+  app.patch('/update-OrderProduct', jsonParser, function (req, res, next) {
+    db.query(
+        'UPDATE tbOrderProduct SET status = ? WHERE product_id = ?',
+        [req.body.status, req.body.pID],
+        function (err, results, fields) {
+            if (err) {
+                res.status(500).json({ status: 'error', message: err.sqlMessage });
+                return;
+            }
+            let message = "";
+            if (results.affectedRows === 0) {
+                message = "Order not found";
+            } else {
+                message = "Order updated successfully";
+            }
+            return res.status(200).json({ status: 'success', data: results, message: message });
+        }
+    );
+});
+app.listen(port,"192.168.1.4", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
