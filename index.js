@@ -13,11 +13,14 @@ const secret = 'toulao'
 const multer = require("multer");
 const path = require("path");
 
+
+
 const db = mysql.createConnection({
     user: "root",
     host: "localhost",
     password: "",
     database: "restaurant"
+  //  database: "test"
 
     // user: "a6ba34_dbtest",
     // host: "mysql5040.site4now.net",
@@ -50,8 +53,8 @@ app.post('/register', jsonParser, function (req, res, next) {
                 //res.json({ status: 'data is null',data:results })
                 bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
                     db.query(
-                        'INSERT INTO tbusers (username, password, email) VALUES (?, ?, ?)',
-                        [req.body.username, hash, req.body.email],
+                        'INSERT INTO tbusers (username, email, password) VALUES (?, ?, ?)',
+                        [req.body.username, req.body.email, hash ],
                         function (err, userData, fields) {
                             if (err) {
                                 res.json({ status: 'error', message: err })
@@ -67,6 +70,48 @@ app.post('/register', jsonParser, function (req, res, next) {
     );
 
 })
+
+
+
+// app.post('/register', jsonParser, function (req, res, next) {
+//     const { username, email, password } = req.body;
+
+//     db.query(
+//         'SELECT username FROM tbusers WHERE username = ?',
+//         [username],
+//         function (err, results, fields) {
+//             if (err) {
+//                 res.json({ status: 'error', message: err });
+//                 return;
+//             }
+
+//             if (results.length > 0) {
+//                 res.json({ status: false, message: 'User already exists', data: [] });
+//                 return;
+//             } else {
+//                 bcrypt.hash(password, saltRounds, function (err, hash) {
+//                     if (err) {
+//                         res.json({ status: 'error', message: err });
+//                         return;
+//                     }
+
+//                     db.query(
+//                         'INSERT INTO tbusers (username, email, password) VALUES (?, ?, ?)',
+//                         [username, email, hash],
+//                         function (err, userData, fields) {
+//                             if (err) {
+//                                 res.json({ status: 'error', message: err });
+//                                 return;
+//                             }
+//                             res.json({ status: true, data: userData, message: 'Success' });
+//                         }
+//                     );
+//                 });
+//             }
+//         }
+//     );
+// });
+
 
 app.get('/load', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
@@ -247,10 +292,11 @@ const upload = multer({
  limits: {fileSize:10000000}
 })
 app.use('/profile', express.static('upload/images'));
+
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -576,7 +622,7 @@ app.post('/order', jsonParser, function (req, res, next) {
         );
     });
 });
-
+///............of order detail......................
 app.post('/order-details', jsonParser, function (req, res, next) {
     ///console.log('body====',req.body);
         db.query(
@@ -996,7 +1042,7 @@ app.get('/products', jsonParser, function (req, res, next) {
         );
     });
 })
-
+///..........for product report............
 app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next) {
     db.query(
       'SELECT od.*, o.or_date, p.product_name ' +
@@ -1018,19 +1064,16 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
   });
   //-------------------< Add Order product >-----------------------------------
 
-
-
   app.post('/add-OrderProduct', jsonParser, function(req, res, next) {
     db.beginTransaction(function(err) {
         if (err) {
             res.status(500).json({ status: false, message: err.message });
             return;
         }
-
         // Insert into tbOrderProduct
         db.query(
-            'INSERT INTO tbOrderProduct (product_id, orpName, orpQty, orpPrice, status, image) VALUES (?, ?, ?, ?, ?, ?)',
-            [req.body.product_id, req.body.product_name, req.body.product_Qty, req.body.product_price, req.body.status, req.body.product_image],
+            'INSERT INTO tbOrderProduct (product_id, orpName, orpQty, orpPrice, orCost, status, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [req.body.product_id, req.body.product_name, req.body.product_Qty, req.body.product_price,req.body.product_cost, req.body.status, req.body.product_image],
             function(err, insertResults, fields) {
                 if (err) {
                     db.rollback(function() {
@@ -1038,7 +1081,6 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
                     });
                     return;
                 }
-
                 // Select data with status = 1
                 db.query(
                     'SELECT * FROM tbOrderProduct WHERE status = 1',
@@ -1069,7 +1111,7 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
 ///...........update orderProduct status.................
   app.patch('/update-OrderProduct', jsonParser, function (req, res, next) {
     db.query(
-        'UPDATE tbOrderProduct SET status = ? WHERE product_id = ?',
+        'UPDATE tbOrderProduct SET status = ? WHERE product_id = ? AND status != 0',
         [req.body.status, req.body.pID],
         function (err, results, fields) {
             if (err) {
@@ -1086,6 +1128,131 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
         }
     );
 });
-app.listen(port,"192.168.1.4", function () {
+
+///...............select order product for improt product.............
+app.post('/OrderProduct_for_improt', jsonParser, function (req, res, next) {
+    
+    db.query(
+        'SELECT * FROM tbOrderProduct WHERE product_id = ? AND status = 2',
+        [req.body.productId],
+        function (err, results, fields) {
+            if (err) {
+                res.json({ status: 'error', message: err })
+                return
+            }
+            res.json({ status: 200, data: results[0], message: err })
+        }
+    );
+
+})
+////..............update product quantity of import...............
+// app.patch('/update-product-quantity-import', jsonParser, function (req, res, next) {
+//     db.query(
+//         'UPDATE tbProduct SET quantity = quantity + ? WHERE product_id = ?',
+//         [req.body.quantity, req.body.product_id],
+//         function (err, results, fields) {
+//             if (err) {
+//                 res.json({ status: false, message: err.sqlMessage });
+//                 return;
+//             }
+//             let message = "";
+//             if (results.affectedRows === 0) {
+//                 message = "Product not found";
+//             } else {
+//                 message = "Product quantity updated successfully";
+//             }
+//             return res.json({ status: true, data: results, message: message });
+//         }
+//     );
+// });
+
+//.........
+app.patch('/update-product-quantity-import', jsonParser, function (req, res, next) {
+    const quantity = req.body.quantity;
+    const product_id = req.body.product_id;
+
+    db.beginTransaction(function (err) {
+        if (err) {
+            res.status(500).json({ status: 'error', message: 'Error starting transaction', error: err });
+            return;
+        }
+
+        // Update tbProduct table
+        db.query(
+            'UPDATE tbProduct SET quantity = quantity + ? WHERE product_id = ?',
+            [quantity, product_id],
+            function (err, results, fields) {
+                if (err) {
+                    return db.rollback(function () {
+                        res.status(500).json({ status: 'error', message: 'Error updating tbProduct', error: err });
+                    });
+                }
+
+                if (results.affectedRows === 0) {
+                    return db.rollback(function () {
+                        res.status(404).json({ status: 'error', message: 'Product not found' });
+                    });
+                }
+
+                // Update tbOrderProduct table
+                db.query(
+                    'UPDATE tbOrderProduct SET status = 0 WHERE product_id = ?',
+                    [product_id],
+                    function (err, results, fields) {
+                        if (err) {
+                            return db.rollback(function () {
+                                res.status(500).json({ status: 'error', message: 'Error updating tbOrderProduct', error: err });
+                            });
+                        }
+
+                        db.commit(function (err) {
+                            if (err) {
+                                return db.rollback(function () {
+                                    res.status(500).json({ status: 'error', message: 'Error committing transaction', error: err });
+                                });
+                            }
+
+                            res.status(200).json({ status: 'success', message: 'Product quantity and order status updated successfully' });
+                        });
+                    }
+                );
+            }
+        );
+    });
+});
+//.............of add user..........................
+app.post('/AddUser', jsonParser, function (req, res, next) {
+    db.query(
+        'INSERT INTO `tbusers`(`image`, `username`, `password`, `email`, `phone`, `gender`, `address`, `status`) VALUES (?,?,?,?,?,?,?,?)',
+        [
+            req.body.image, 
+            req.body.username, 
+            req.body.password, 
+            req.body.email, 
+            req.body.phone, 
+            req.body.gender, 
+            req.body.address, 
+            req.body.status
+        ],
+        function (err, results, fields) {
+            console.log('result=====', results);
+            if (err) {
+                console.log('error', err);
+                res.json({ status: 'error', message: err });
+                return;
+            }
+            db.query('SELECT * FROM tbusers', function (err, rows, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err });
+                    return;
+                }
+                res.json({ status: 200, data: rows });
+            });
+        }
+    );
+});
+
+
+app.listen(port,"192.168.1.2", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
