@@ -286,7 +286,7 @@ const storage = multer.diskStorage({
   }
 })
 
-//----of upload image ------
+//----of upload image of product------
 const upload = multer({
  storage: storage,
  limits: {fileSize:10000000}
@@ -296,7 +296,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -1146,27 +1146,7 @@ app.post('/OrderProduct_for_improt', jsonParser, function (req, res, next) {
 
 })
 ////..............update product quantity of import...............
-// app.patch('/update-product-quantity-import', jsonParser, function (req, res, next) {
-//     db.query(
-//         'UPDATE tbProduct SET quantity = quantity + ? WHERE product_id = ?',
-//         [req.body.quantity, req.body.product_id],
-//         function (err, results, fields) {
-//             if (err) {
-//                 res.json({ status: false, message: err.sqlMessage });
-//                 return;
-//             }
-//             let message = "";
-//             if (results.affectedRows === 0) {
-//                 message = "Product not found";
-//             } else {
-//                 message = "Product quantity updated successfully";
-//             }
-//             return res.json({ status: true, data: results, message: message });
-//         }
-//     );
-// });
 
-//.........
 app.patch('/update-product-quantity-import', jsonParser, function (req, res, next) {
     const quantity = req.body.quantity;
     const product_id = req.body.product_id;
@@ -1220,39 +1200,145 @@ app.patch('/update-product-quantity-import', jsonParser, function (req, res, nex
         );
     });
 });
+//.............get user...............
+app.get('/getuser', jsonParser, function (req, res, next) {
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        db.query(
+            'SELECT * FROM tbusers',
+            function (err, results, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                res.json({ status: 'ok', data: results })
+            }
+        );
+    });
+})
+///.........upload image of user..............
+const uploads = multer({
+    storage: storage,
+    limits: {fileSize:10000000}
+   })
+   app.use('/profile', express.static('upload/images'));
+   
+   app.post("/uploads", uploads.single('profile'), (req, res) => {
+     res.json({
+       success:1,
+       profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+     })
+     console.log(req.file);
+   })
+   function errHandler(err, req, res,next){
+     if (err instanceof multer.MulterError){
+       res.json({
+         success: 0,
+         message: err.message
+       })
+     }
+   }
+   app.use(errHandler)
+   
+
 //.............of add user..........................
 app.post('/AddUser', jsonParser, function (req, res, next) {
     db.query(
-        'INSERT INTO `tbusers`(`image`, `username`, `password`, `email`, `phone`, `gender`, `address`, `status`) VALUES (?,?,?,?,?,?,?,?)',
-        [
-            req.body.image, 
-            req.body.username, 
-            req.body.password, 
-            req.body.email, 
-            req.body.phone, 
-            req.body.gender, 
-            req.body.address, 
-            req.body.status
-        ],
+        'Select username from tbusers where username=?',
+        [req.body.username],
         function (err, results, fields) {
-            console.log('result=====', results);
             if (err) {
-                console.log('error', err);
-                res.json({ status: 'error', message: err });
-                return;
+                res.json({ status: 'error', message: err })
+                return
             }
-            db.query('SELECT * FROM tbusers', function (err, rows, fields) {
-                if (err) {
-                    res.json({ status: 'error', message: err });
-                    return;
-                }
-                res.json({ status: 200, data: rows });
-            });
+            // var user = res.json({ status: 'ok',data:results })
+            if(Object.keys(results).length){
+                console.log('data ='+results.length);
+                res.json({ status: false,message:'user already exit',data:[] });
+                return
+            }else{
+                //res.json({ status: 'data is null',data:results })
+                bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+                    db.query(
+                        'INSERT INTO `tbusers`(`image`, `username`, `password`, `email`, `phone`, `gender`, `address`, `status`) VALUES (?,?,?,?,?,?,?,?)',
+                        [
+                              req.body.image, 
+                              req.body.username, 
+                              hash,
+                              req.body.email, 
+                              req.body.phone, 
+                              req.body.gender, 
+                              req.body.address, 
+                              req.body.status
+                        ],
+                        function (err, userData, fields) {
+                            if (err) {
+                                res.json({ status: 'error', message: err })
+                                return
+                            }
+                            res.json({ status: true,data:userData,message:'sucess' })
+                        }
+                    );
+                });
+            }
+            
         }
     );
+
+})
+
+//..........delete user..................
+app.delete('/delete-user', jsonParser, function (req, res, next) {
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        db.query(
+            'DELETE FROM tbUsers WHERE uid=?',
+            [req.body.uid],
+            function (err, results, fields) {
+                if (err) {
+                    res.json({ status: false, message: err })
+                    return
+                }
+                let message = "";
+                if(results.affectedRows === 0){
+                  message = "User not found"
+                }else{
+                  message = "User Deleted Successfully";
+                }
+                return res.json({ status: true, data: results, message: message })
+            }
+        );
+    });
+})
+//.......update user......................
+app.put('/update-user', jsonParser, function (req, res, next) {
+    bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
+        db.query(
+            'UPDATE tbusers SET image=?, username=?, password=?, email=?, phone=?, gender=?, address=?, status=? WHERE uid=?',
+            [
+                req.body.image,
+                req.body.username,
+                hash,
+                req.body.email,
+                req.body.phone,
+                req.body.gender,
+                req.body.address,
+                req.body.status,
+                req.body.uid
+            ],
+            function (err, userData, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                if (userData.affectedRows === 0) {
+                    res.json({ status: false, message: 'User not found' })
+                } else {
+                    res.json({ status: true, data: userData, message: 'User updated successfully' })
+                }
+            }
+        );
+    });
 });
 
-
-app.listen(port,"192.168.1.2", function () {
+app.listen(port,"192.168.1.4", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
