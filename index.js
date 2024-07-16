@@ -296,7 +296,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -827,29 +827,94 @@ app.delete('/delete-move-order-getFromtable', jsonParser, function (req, res, ne
 //     );
 //   });
 
-app.post('/update-move-table', jsonParser, function (req, res, next) {
-    ///console.log('body====',req.body);
-        db.query(
-            'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`, `table_id`) VALUES (?,?,?,?,?,?)',
-            [req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date, req.body.table_id],
-            function (err, results, fields) {
-                console.log('result=====',results);
-                if (err) {
-                    console.log('error',err);
-                    res.json({ status: 'error', message: err })
-                    return
-                }
-                db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, rows, fields) {
-                    if (err) {
-                        res.json({ status: 'error', message: err })
-                        return
-                    }
-                    res.json({ status: 200, data: rows[0] })
-                });
-            }
-        );
+// app.post('/update-move-table', jsonParser, function (req, res, next) {
+//     ///console.log('body====',req.body);
+//         db.query(
+//             'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`, `table_id`) VALUES (?,?,?,?,?,?)',
+//             [req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date, req.body.table_id],
+//             function (err, results, fields) {
+//                 console.log('result=====',results);
+//                 if (err) {
+//                     console.log('error',err);
+//                     res.json({ status: 'error', message: err })
+//                     return
+//                 }
+//                 db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, rows, fields) {
+//                     if (err) {
+//                         res.json({ status: 'error', message: err })
+//                         return
+//                     }
+//                     res.json({ status: 200, data: rows[0] })
+//                 });
+//             }
+//         );
     
+// });
+
+////..........................
+app.post('/update-move-tables', jsonParser, function (req, res, next) {
+    const { or_id, product_id, qty, amount, ord_date, table_id } = req.body;
+
+    // Check if the combination of or_id and product_id already exists in tborderdetail
+    db.query(
+        'SELECT * FROM tborderdetail WHERE or_id = ? AND product_id = ?',
+        [or_id, product_id],
+        function (err, rows, fields) {
+            if (err) {
+                console.log('error', err);
+                res.json({ status: 'error', message: err });
+                return;
+            }
+
+            if (rows.length > 0) {
+                // If record exists, update the qty
+                db.query(
+                    'UPDATE tborderdetail SET qty = ?, amount = ?, ord_date = ?, table_id = ? WHERE or_id = ? AND product_id = ?',
+                    [qty, amount, ord_date, table_id, or_id, product_id],
+                    function (err, results, fields) {
+                        if (err) {
+                            console.log('error', err);
+                            res.json({ status: 'error', message: err });
+                            return;
+                        }
+
+                        // Return updated data
+                        db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, updatedRows, fields) {
+                            if (err) {
+                                res.json({ status: 'error', message: err });
+                                return;
+                            }
+                            res.json({ status: 200, data: updatedRows[0] });
+                        });
+                    }
+                );
+            } else {
+                // If record does not exist, insert a new record
+                db.query(
+                    'INSERT INTO tborderdetail (or_id, product_id, qty, amount, ord_date, table_id) VALUES (?, ?, ?, ?, ?, ?)',
+                    [or_id, product_id, qty, amount, ord_date, table_id],
+                    function (err, results, fields) {
+                        if (err) {
+                            console.log('error', err);
+                            res.json({ status: 'error', message: err });
+                            return;
+                        }
+
+                        // Return inserted data
+                        db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, insertedRows, fields) {
+                            if (err) {
+                                res.json({ status: 'error', message: err });
+                                return;
+                            }
+                            res.json({ status: 200, data: insertedRows[0] });
+                        });
+                    }
+                );
+            }
+        }
+    );
 });
+
 
 
 //.........get order by order_status in kitchen..............
@@ -1225,7 +1290,7 @@ const uploads = multer({
    app.post("/uploads", uploads.single('profile'), (req, res) => {
      res.json({
        success:1,
-       profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+       profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
      })
      console.log(req.file);
    })
@@ -1338,7 +1403,19 @@ app.put('/update-user', jsonParser, function (req, res, next) {
         );
     });
 });
+///.....select tbTable for make order from menu page..............
+app.get('/menutable', function (req, res, next) {
+    var sql = 'SELECT * FROM tbtable WHERE table_status = 0';
+    db.query(sql, function (err, results, fields) {
+        if (err) {
+            res.status(500).json({ status: 'error', message: err });
+            return;
+        }
+        res.status(200).json({ status: 'success', data: results });
+    });
+});
 
-app.listen(port,"192.168.1.4", function () {
+
+app.listen(port,"192.168.1.2", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
