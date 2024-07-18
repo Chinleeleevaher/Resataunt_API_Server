@@ -296,7 +296,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -1127,6 +1127,43 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
       }
     );
   });
+
+  ///.........get icome for report.............
+
+  app.post('/income', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT * FROM tbOrderDetail WHERE ord_date BETWEEN ? AND ?',
+      [req.body.startDate, req.body.endDate],
+      function (err, results, fields) {
+        console.log('Start Date: ' + req.body.startDate + ', End Date: ' + req.body.endDate);
+        if (err) {
+          res.json({ status: 'error', message: err });
+          return;
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: 'Amount fetched successfully' });
+      }
+    );
+  });
+ ///.........get icome  month and year for report.............
+ app.post('/incomeyear', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT * FROM tbOrderDetail WHERE YEAR(ord_date) = ?',
+      [req.body.year],
+      function (err, results, fields) {
+        console.log('Year: ' + req.body.year);
+        if (err) {
+          res.json({ status: 'error', message: err });
+          return;
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: 'Data fetched successfully' });
+      }
+    );
+  });
+  
+  
+  
   //-------------------< Add Order product >-----------------------------------
 
   app.post('/add-OrderProduct', jsonParser, function(req, res, next) {
@@ -1290,7 +1327,7 @@ const uploads = multer({
    app.post("/uploads", uploads.single('profile'), (req, res) => {
      res.json({
        success:1,
-       profile_url:`http://192.168.1.2:3005/profile/${req.file.filename}`  
+       profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
      })
      console.log(req.file);
    })
@@ -1416,6 +1453,6 @@ app.get('/menutable', function (req, res, next) {
 });
 
 
-app.listen(port,"192.168.1.2", function () {
+app.listen(port,"192.168.1.5", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
