@@ -1161,8 +1161,40 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
       }
     );
   });
-  
-  
+  ////...................get product that have low quantity................
+  app.get('/Pquantity', jsonParser, function (req, res, next) {
+    db.query(
+        'SELECT DISTINCT quantity FROM tbproduct WHERE protype_id = 2 ORDER BY quantity ASC LIMIT 3',
+        function (err, quantityResults, fields) {
+            if (err) {
+                res.json({ status: 'error', message: err });
+                return;
+            }
+
+            // Extract the 3 lowest unique quantities from the results
+            const quantities = quantityResults.map(row => row.quantity);
+
+            // Query the products that match these quantities and protype_id = 2
+            db.query(
+                'SELECT * FROM tbproduct WHERE quantity IN (?) AND protype_id = 2 ORDER BY quantity ASC',
+                [quantities],
+                function (err, productResults, fields) {
+                    if (err) {
+                        res.json({ status: 'error', message: err });
+                        return;
+                    }
+
+                    // Return product results
+                    res.json({ status: 'ok', products: productResults });
+                }
+            );
+        }
+    );
+});
+
+
+
+
   
   //-------------------< Add Order product >-----------------------------------
 
