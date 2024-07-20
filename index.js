@@ -554,28 +554,90 @@ app.put('/update-Unit', jsonParser, function (req, res, next) {
     );
   });
 
-// app.post('/food', jsonParser, function (req, res, next) {
-    
-//         var sql = '';
-//         if(req.body.typeIds!="" || req.body.typeId !=0){
-//             sql = 'SELECT * FROM tbProduct where protype_id = ?'
-//         }
-//         else{
-//             sql ='SELECT * FROM tbProduct'
-//         }
-//         db.query(
-//             sql, [req.body.typeId],
-//             function (err, results, fields) {
-//                 if (err) {
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 res.json({ status: 200, data: results, message: err })
-//             }
-//         );
-    
-// })
+//...............Add table..............
 
+app.post('/Addtable', jsonParser, function (req, res, next) {
+    const { tablename, tabletypeId , tableSize } = req.body; // Destructure tablename and tabletypeId from req.body
+    
+    // Default values for table_size and table_status
+    
+    const tableStatus = 0;
+  
+    // Insert query with fixed values for table_size and table_status
+    db.query(
+      'INSERT INTO tbtable (table_name, table_size, tabletype_id, table_status) VALUES (?, ?, ?, ?)',
+      [tablename, tableSize, tabletypeId, tableStatus], // Use tablename and tabletypeId
+      function (err, results, fields) {
+        if (err) {
+          console.error('Error inserting data:', err);
+          res.status(500).json({ status: 'error', message: 'Error inserting data' });
+          return;
+        }
+  
+        res.status(200).json({ status: 'success', data: results, message: 'Data added successfully' });
+      }
+    );
+  });
+  ///....................... get table.........................
+  app.get('/tables', jsonParser, function (req, res, next) {
+        db.query(
+            'SELECT * FROM tbtable',
+            function (err, results, fields) {
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                res.json({ status: 200, data: results, message: err })
+            }
+        );
+   
+})
+ //..........delete table............
+ app.delete('/delete-table', jsonParser, function (req, res, next) {
+    db.query(
+      'DELETE FROM tbtable WHERE table_id = ?',
+      [req.body.tableId],
+      function (err, results, fields) {
+        if (err) {
+          res.json({ status: 'error', message: err.sqlMessage })
+          return
+        }
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Product type not found"
+        } else {
+          message = "Product type deleted successfully";
+        }
+        return res.json({ status: 200, data: results, message: message })
+      }
+    );
+  });
+//..........update table..............
+
+app.put('/updateTable', jsonParser, function (req, res, next) {
+    const { tableName, tabletypeId, tablesize, tableId } = req.body;
+  
+    db.query(
+      'UPDATE tbtable SET table_name = ?, tabletype_id = ?, table_size = ? WHERE table_id = ?',
+      [tableName, tabletypeId, tablesize, tableId],
+      function (err, results, fields) {
+        if (err) {
+          console.error('Database error:', err);
+          return res.status(500).json({ status: 'error', message: 'Database error occurred' });
+        }
+  
+        let message = "";
+        if (results.affectedRows === 0) {
+          message = "Table not found";
+        } else {
+          message = "Table updated successfully";
+        }
+        
+        res.status(200).json({ status: 200, data: results, message: message });
+      }
+    );
+  });
+  
 //----for select and serch------
 app.post('/food', jsonParser, function (req, res, next) {
   var sql = "SELECT * FROM tbProduct WHERE 1=1";
