@@ -20,12 +20,6 @@ const db = mysql.createConnection({
     host: "localhost",
     password: "",
     database: "restaurant"
-  //  database: "test"
-
-    // user: "a6ba34_dbtest",
-    // host: "mysql5040.site4now.net",
-    // password: "db123456",
-    // database: "db_a6ba34_dbtest"
 })
 
 app.use(cors())
@@ -70,48 +64,6 @@ app.post('/register', jsonParser, function (req, res, next) {
     );
 
 })
-
-
-
-// app.post('/register', jsonParser, function (req, res, next) {
-//     const { username, email, password } = req.body;
-
-//     db.query(
-//         'SELECT username FROM tbusers WHERE username = ?',
-//         [username],
-//         function (err, results, fields) {
-//             if (err) {
-//                 res.json({ status: 'error', message: err });
-//                 return;
-//             }
-
-//             if (results.length > 0) {
-//                 res.json({ status: false, message: 'User already exists', data: [] });
-//                 return;
-//             } else {
-//                 bcrypt.hash(password, saltRounds, function (err, hash) {
-//                     if (err) {
-//                         res.json({ status: 'error', message: err });
-//                         return;
-//                     }
-
-//                     db.query(
-//                         'INSERT INTO tbusers (username, email, password) VALUES (?, ?, ?)',
-//                         [username, email, hash],
-//                         function (err, userData, fields) {
-//                             if (err) {
-//                                 res.json({ status: 'error', message: err });
-//                                 return;
-//                             }
-//                             res.json({ status: true, data: userData, message: 'Success' });
-//                         }
-//                     );
-//                 });
-//             }
-//         }
-//     );
-// });
-
 
 app.get('/load', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
@@ -202,24 +154,6 @@ app.post('/table', jsonParser, function (req, res, next) {
     );
 
 })
-
-// app.post('/table', jsonParser, function (req, res, next) {
-//     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
-//         db.query(
-//             'SELECT * FROM tbTable where tabletype_id=?', [req.body.tabletype_id],
-//             function (err, results, fields) {
-//                 console.log('id=' + req.body.tabletype_id);
-//                 if (err) {
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 console.log(results);
-//                 res.json({ status: 200, data: results, message: err })
-//             }
-//         );
-//     });
-// })
-
 //---------of add table------------------------
 app.post('/add-table', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
@@ -296,7 +230,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -869,50 +803,6 @@ app.delete('/delete-move-order-getFromtable', jsonParser, function (req, res, ne
     );
 });
 
-// app.delete('/delete-move-order-getTotable', jsonParser, function (req, res, next) {
-//     db.query(
-//       'DELETE FROM tbOrderDetail WHERE table_id = ?',
-//       [req.body.table_id],
-//       function (err, results, fields) {
-//         if (err) {
-//           res.json({ status: 'error', message: err.sqlMessage })
-//           return
-//         }
-//         let message = "";
-//         if (results.affectedRows === 0) {
-//           message = "Product type not found"
-//         } else {
-//           message = "Product type deleted successfully";
-//         }
-//         return res.json({ status: 200, data: results, message: message })
-//       }
-//     );
-//   });
-
-// app.post('/update-move-table', jsonParser, function (req, res, next) {
-//     ///console.log('body====',req.body);
-//         db.query(
-//             'INSERT INTO `tborderdetail`(`or_id`, `product_id`, `qty`, `amount`, `ord_date`, `table_id`) VALUES (?,?,?,?,?,?)',
-//             [req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.ord_date, req.body.table_id],
-//             function (err, results, fields) {
-//                 console.log('result=====',results);
-//                 if (err) {
-//                     console.log('error',err);
-//                     res.json({ status: 'error', message: err })
-//                     return
-//                 }
-//                 db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, rows, fields) {
-//                     if (err) {
-//                         res.json({ status: 'error', message: err })
-//                         return
-//                     }
-//                     res.json({ status: 200, data: rows[0] })
-//                 });
-//             }
-//         );
-    
-// });
-
 ////..........................
 app.post('/update-move-tables', jsonParser, function (req, res, next) {
     const { or_id, product_id, qty, amount, ord_date, table_id } = req.body;
@@ -976,8 +866,6 @@ app.post('/update-move-tables', jsonParser, function (req, res, next) {
         }
     );
 });
-
-
 
 //.........get order by order_status in kitchen..............
 app.post('/getOrderstatus', jsonParser, function (req, res, next) {
@@ -1268,8 +1156,8 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
         }
         // Insert into tbOrderProduct
         db.query(
-            'INSERT INTO tbOrderProduct (product_id, orpName, orpQty, orpPrice, orCost, status, image) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [req.body.product_id, req.body.product_name, req.body.product_Qty, req.body.product_price,req.body.product_cost, req.body.status, req.body.product_image],
+            'INSERT INTO tbOrderProduct (product_id, orpName, orpQty, orpPrice, orCost, status, billnumber, orp_date, image) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [req.body.product_id, req.body.product_name, req.body.product_Qty, req.body.product_price,req.body.product_cost, req.body.status, req.body.billnumber, req.body.orp_date, req.body.product_image],
             function(err, insertResults, fields) {
                 if (err) {
                     db.rollback(function() {
@@ -1325,6 +1213,23 @@ app.post('/getOrderDetailforProductReport', jsonParser, function (req, res, next
     );
 });
 
+ ///.........Select from tbOrderProduct for bill list id.............
+ app.post('/orderProductBillList', jsonParser, function (req, res, next) {
+    db.query(
+      'SELECT * FROM tbOrderProduct WHERE billnumber = ?',
+      [req.body.billnumber],
+      function (err, results, fields) {
+        console.log('Year: ' + req.body.year);
+        if (err) {
+          res.json({ status: 'error', message: err });
+          return;
+        }
+        console.log(results);
+        res.json({ status: 200, data: results, message: 'Data fetched successfully' });
+      }
+    );
+  });
+
 ///...............select order product for improt product.............
 app.post('/OrderProduct_for_improt', jsonParser, function (req, res, next) {
     
@@ -1341,11 +1246,13 @@ app.post('/OrderProduct_for_improt', jsonParser, function (req, res, next) {
     );
 
 })
+
 ////..............update product quantity of import...............
 
 app.patch('/update-product-quantity-import', jsonParser, function (req, res, next) {
     const quantity = req.body.quantity;
     const product_id = req.body.product_id;
+    const billnameber = req.body.billnameber;
 
     db.beginTransaction(function (err) {
         if (err) {
@@ -1372,8 +1279,8 @@ app.patch('/update-product-quantity-import', jsonParser, function (req, res, nex
 
                 // Update tbOrderProduct table
                 db.query(
-                    'UPDATE tbOrderProduct SET status = 0 WHERE product_id = ?',
-                    [product_id],
+                    'UPDATE tbOrderProduct SET status = 0 WHERE billnumber = ?',
+                    [billnameber],
                     function (err, results, fields) {
                         if (err) {
                             return db.rollback(function () {
@@ -1396,6 +1303,22 @@ app.patch('/update-product-quantity-import', jsonParser, function (req, res, nex
         );
     });
 });
+
+///...............select order product for List bill.............
+app.get('/OrderProductListBill', function (req, res, next) {
+    db.query(
+        `SELECT * FROM tbOrderProduct
+         GROUP BY billnumber`,
+        function (err, results, fields) {
+            if (err) {
+                res.json({ status: 'error', message: err });
+                return;
+            }
+            res.json({ status: 200, data: results, message: 'Data retrieved successfully' });
+        }
+    );
+});
+
 //.............get user...............
 app.get('/getuser', jsonParser, function (req, res, next) {
     bcrypt.hash(req.body.password, saltRounds, function (err, hash) {
@@ -1421,7 +1344,7 @@ const uploads = multer({
    app.post("/uploads", uploads.single('profile'), (req, res) => {
      res.json({
        success:1,
-       profile_url:`http://192.168.1.3:3005/profile/${req.file.filename}`  
+       profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
      })
      console.log(req.file);
    })
@@ -1547,6 +1470,6 @@ app.get('/menutable', function (req, res, next) {
 });
 
 
-app.listen(port,"192.168.1.5", function () {
+app.listen(port,"192.168.1.4", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
