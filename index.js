@@ -230,7 +230,7 @@ app.use('/profile', express.static('upload/images'));
 app.post("/upload", upload.single('profile'), (req, res) => {
   res.json({
     success:1,
-    profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+    profile_url:`http://192.168.59.84:3005/profile/${req.file.filename}`  
   })
   console.log(req.file);
 })
@@ -642,6 +642,90 @@ app.post('/order-details', jsonParser, function (req, res, next) {
         );
     
 });
+//......post reject order...............
+// app.post('/postrejectorder', jsonParser, function (req, res, next) {
+//     ///console.log('body====',req.body);
+//         db.query(
+//             'INSERT INTO `tbrejectorder`(`table_id`,`or_id`, `product_id`, `qty`, `amount`, `status`) VALUES (?,?,?,?,?,?)',
+//             [req.body.table_id, req.body.or_id, req.body.product_id, req.body.qty, req.body.amount, req.body.status],
+//             function (err, results, fields) {
+//                 console.log('result=====',results);
+//                 if (err) {
+//                     console.log('error',err);
+//                     res.json({ status: 'error', message: err })
+//                     return
+//                 }
+//             }
+//         );
+    
+// });
+app.post('/postrejectorder', jsonParser, function (req, res, next) {
+    ///console.log('body====',req.body);
+        db.query(
+            'INSERT INTO `tbrejectorder`(`or_id`, `product_id`, `qty`, `amount`,`table_id`,`status`) VALUES (?,?,?,?,?,1)',
+            [ req.body.or_id, req.body.product_id, req.body.qty, req.body.amount,req.body.table_id,],
+            function (err, results, fields) {
+                console.log('result=====',results);
+                if (err) {
+                    console.log('error',err);
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                db.query('SELECT * FROM tborderdetail WHERE ord_id = ?', results.insertId, function (err, rows, fields) {
+                    if (err) {
+                        res.json({ status: 'error', message: err })
+                        return
+                    }
+                    res.json({ status: 200, data: rows[0] })
+                });
+            }
+        );
+    
+});
+//...select reject order....
+// app.post('/getrejectorder', jsonParser, function (req, res, next) {
+    
+//     db.query(
+//         'SELECT * FROM tbrejectorder WHERE table_id = ? AND status = 1',[req.body.tableId],
+//         function (err, results, fields) {
+//             if (err) {
+//                 res.json({ status: 'error', message: err })
+//                 return
+//             }
+//             res.json({ status: 200, data: results, message: err })
+//         }
+//     );
+
+// })
+app.post('/getrejectorder', jsonParser, function (req, res, next) {
+    const { tableId } = req.body;
+
+    // Ensure tableId is provided
+    if (!tableId) {
+        return res.status(400).json({ status: 'error', message: 'tableId is required' });
+    }
+
+    // Query to get reject orders and join with tbProduct to get product names
+    db.query(
+        `SELECT tbrejectorder.*, tbproduct.product_name 
+         FROM tbrejectorder 
+         JOIN tbproduct ON tbrejectorder.product_id = tbproduct.product_id 
+         WHERE tbrejectorder.table_id = ? AND tbrejectorder.status = 1`,
+        [tableId],
+        function (err, results) {
+            if (err) {
+                console.error('Error fetching from tbrejectorder:', err);
+                return res.status(500).json({ status: 'error', message: err.message });
+            }
+
+            // Respond with the fetched data
+            res.status(200).json({ status: 200, data: results });
+        }
+    );
+});
+
+
+
 
 //-----nomore use---------------
 app.get('/max-order-id', jsonParser, function (req, res, next) {
@@ -870,7 +954,7 @@ app.post('/update-move-tables', jsonParser, function (req, res, next) {
 //.........get order by order_status in kitchen..............
 app.post('/getOrderstatus', jsonParser, function (req, res, next) {
         db.query(
-            'SELECT * FROM tblOrder WHERE or_status = ?', [req.body.orStatus],
+            'SELECT * FROM tblOrder WHERE or_status = ? AND or_qty > 0', [req.body.orStatus],
             function (err, results, fields) {
                 console.log('id=' + req.body.orStatus);
                 if (err) {
@@ -883,6 +967,40 @@ app.post('/getOrderstatus', jsonParser, function (req, res, next) {
         );
    
 })
+//.........get order by order_status in kitchen..............
+app.post('/getOrderstatus', jsonParser, function (req, res, next) {
+        db.query(
+            'SELECT * FROM tblOrder WHERE or_status = ? AND or_qty > 0', [req.body.orStatus],
+            function (err, results, fields) {
+                console.log('id=' + req.body.orStatus);
+                if (err) {
+                    res.json({ status: 'error', message: err })
+                    return
+                }
+                console.log(results);
+                res.json({ status: 200, data: results, message: err })
+            }
+        );
+   
+})
+//.........select order in today.............
+app.post('/getOrdertoday', jsonParser, function (req, res, next) {
+    // Get today's date in 'YYYY-MM-DD' format
+    const today = new Date().toISOString().split('T')[0];
+
+    db.query(
+        'SELECT * FROM tblOrder WHERE DATE(or_date) = ?',
+        [today],
+        function (err, results, fields) {
+            if (err) {
+                res.json({ status: 'error', message: err });
+                return;
+            }
+            res.json({ status: 200, data: results });
+        }
+    );
+});
+
 //.........get orderdetail by order id for kitchen..............
 app.post('/getOrderDetail_Kitchen', jsonParser, function (req, res, next) {
     db.query(
@@ -931,8 +1049,88 @@ app.post('/getOrderDetail_Kitchen', jsonParser, function (req, res, next) {
         }
     );
 });
+//..reject order..........
+app.delete('/rejectorder', jsonParser, function (req, res, next) {
+    const { or_id, product_id } = req.body;
+
+    // Validate input
+    if (!or_id || !product_id) {
+        return res.status(400).json({ status: false, message: "or_id and product_id are required" });
+    }
+
+    // Begin a transaction
+    db.beginTransaction(function (err) {
+        if (err) {
+            return res.status(500).json({ status: false, message: err.message });
+        }
+
+        // Step 1: Delete from tbOrderDetail
+        db.query(
+            'DELETE FROM tbOrderDetail WHERE or_id = ? AND product_id = ?',
+            [or_id, product_id],
+            function (err, results) {
+                if (err) {
+                    return db.rollback(function() {
+                        res.json({ status: false, message: err.message });
+                    });
+                }
+
+                if (results.affectedRows === 0) {
+                    const message = "Order detail not found";
+                    return db.rollback(function() {
+                        res.json({ status: false, message: message });
+                    });
+                }
+
+                // Step 2: Get the current quantity and amount from tbOrderDetail
+                db.query(
+                    'SELECT SUM(qty) AS totalQty, SUM(amount) AS totalAmount FROM tbOrderDetail WHERE or_id = ?',
+                    [or_id],
+                    function (err, results) {
+                        if (err) {
+                            return db.rollback(function() {
+                                res.json({ status: false, message: err.message });
+                            });
+                        }
+
+                        // Calculate the updated quantity and amount
+                        const totalQty = results[0].totalQty || 0;
+                        const totalAmount = results[0].totalAmount || 0;
+
+                        // Step 3: Update tblOrder with the corrected quantity and amount
+                        db.query(
+                            'UPDATE tblOrder SET or_qty = ?, or_amount = ? WHERE or_id = ?',
+                            [totalQty, totalAmount, or_id],
+                            function (err, results) {
+                                if (err) {
+                                    return db.rollback(function() {
+                                        res.json({ status: false, message: err.message });
+                                    });
+                                }
+
+                                // Commit the transaction
+                                db.commit(function (err) {
+                                    if (err) {
+                                        return db.rollback(function() {
+                                            res.json({ status: false, message: err.message });
+                                        });
+                                    }
+
+                                    res.json({ status: true, message: "Order detail deleted and quantities and amounts updated successfully" });
+                                });
+                            }
+                        );
+                    }
+                );
+            }
+        );
+    });
+});
+
 
 /// ..........update table status and order status in kitchen.....................
+
+
 app.post('/updateTables-orderstatus', jsonParser, function (req, res, next) {
     const tableId = req.body.tableId;
     const tableStatus = req.body.tableStatus;
@@ -941,70 +1139,123 @@ app.post('/updateTables-orderstatus', jsonParser, function (req, res, next) {
 
     db.beginTransaction(function (err) {
         if (err) {
-            res.json({ status: 'error', message: err });
-            return;
+            return res.json({ status: 'error', message: err });
         }
 
         // Update table status
         db.query(
             'UPDATE tbTable SET table_status = ? WHERE table_id = ?',
             [tableStatus, tableId],
-            function (err, results, fields) {
+            function (err, results) {
                 if (err) {
-                    db.rollback(function () {
+                    return db.rollback(function () {
                         res.json({ status: 'error', message: err });
                     });
-                    return;
                 }
 
                 // Update order status
                 db.query(
                     'UPDATE tblOrder SET or_status = ? WHERE or_id = ?',
                     [orderStatus, orderId],
-                    function (err, results, fields) {
+                    function (err, results) {
                         if (err) {
-                            db.rollback(function () {
+                            return db.rollback(function () {
                                 res.json({ status: 'error', message: err });
                             });
-                            return;
                         }
 
-                        db.commit(function (err) {
-                            if (err) {
-                                db.rollback(function () {
-                                    res.json({ status: 'error', message: err });
-                                });
-                                return;
-                            }
+                        // Update reject order status
+                        db.query(
+                            'UPDATE tbrejectorder SET status = ? WHERE or_id = ?',
+                            [orderStatus, orderId],
+                            function (err, results) {
+                                if (err) {
+                                    return db.rollback(function () {
+                                        res.json({ status: 'error', message: err });
+                                    });
+                                }
 
-                            res.json({ status: 200, message: 'Tables and order status updated successfully' });
-                        });
+                                db.commit(function (err) {
+                                    if (err) {
+                                        return db.rollback(function () {
+                                            res.json({ status: 'error', message: err });
+                                        });
+                                    }
+
+                                    res.json({ status: 200, message: 'Tables and order status updated successfully' });
+                                });
+                            }
+                        );
                     }
                 );
             }
         );
     });
 });
+
 // ............update tblOrder when make payment.................
+// app.patch('/update-Order_payment', jsonParser, function (req, res, next) {
+//     db.query(
+//       'UPDATE tblOrder SET receives = ?, returns = ?, payment = ?, or_status = ? WHERE or_id = ?',
+//       [req.body.receives, req.body.returns, req.body.payment, req.body.orStatus, req.body.orId],
+//       function (err, results, fields) {
+//         if (err) {
+//           res.json({ status: 'error', message: err.sqlMessage })
+//           return
+//         }
+//         let message = "";
+//         if (results.affectedRows === 0) {
+//           message = "Order not found"
+//         } else {
+//           message = "Order updated successfully";
+//         }
+//         return res.json({ status: 200, data: results, message: message })
+//       }
+//     );
+//   });
+
 app.patch('/update-Order_payment', jsonParser, function (req, res, next) {
+    const { tableId, orStatus, receives, returns, payment, newOrStatus } = req.body;
+
+    // Step 1: Check if a record with the given table_id and or_status exists
     db.query(
-      'UPDATE tblOrder SET receives = ?, returns = ?, payment = ?, or_status = ? WHERE or_id = ?',
-      [req.body.receives, req.body.returns, req.body.payment, req.body.orStatus, req.body.orId],
-      function (err, results, fields) {
-        if (err) {
-          res.json({ status: 'error', message: err.sqlMessage })
-          return
+        'SELECT or_id FROM tblOrder WHERE table_id = ? AND or_status = ?',
+        [tableId, orStatus],
+        function (err, results) {
+            if (err) {
+                res.json({ status: 'error', message: err.sqlMessage });
+                return;
+            }
+
+            if (results.length === 0) {
+                // No record found
+                return res.json({ status: 404, message: "Order with the specified table_id and or_status not found" });
+            }
+
+            // Step 2: Proceed with the update if record exists
+            db.query(
+                'UPDATE tblOrder SET receives = ?, returns = ?, payment = ?, or_status = ? WHERE table_id = ? AND or_status = ?',
+                [receives, returns, payment, newOrStatus, tableId, orStatus],
+                function (err, results) {
+                    if (err) {
+                        res.json({ status: 'error', message: err.sqlMessage });
+                        return;
+                    }
+
+                    let message = "";
+                    if (results.affectedRows === 0) {
+                        message = "No changes made";
+                    } else {
+                        message = "Order updated successfully";
+                    }
+
+                    return res.json({ status: 200, data: results, message: message });
+                }
+            );
         }
-        let message = "";
-        if (results.affectedRows === 0) {
-          message = "Order not found"
-        } else {
-          message = "Order updated successfully";
-        }
-        return res.json({ status: 200, data: results, message: message })
-      }
     );
-  });
+});
+
 /// ............of order list for report...............
 app.post('/getOrderDateRange', jsonParser, function (req, res, next) {
     db.query(
@@ -1344,7 +1595,7 @@ const uploads = multer({
    app.post("/uploads", uploads.single('profile'), (req, res) => {
      res.json({
        success:1,
-       profile_url:`http://192.168.1.4:3005/profile/${req.file.filename}`  
+       profile_url:`http://192.168.59.84:3005/profile/${req.file.filename}`  
      })
      console.log(req.file);
    })
@@ -1470,6 +1721,6 @@ app.get('/menutable', function (req, res, next) {
 });
 
 
-app.listen(port,"192.168.1.4", function () {
+app.listen(port,"192.168.59.84", function () {
     console.log('CORS-enabled web server listening on port'+port)
 })
